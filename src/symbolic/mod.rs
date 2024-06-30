@@ -15,9 +15,9 @@ pub enum IR {
 pub struct Args {
     pub from: IR,
     pub to: IR,
-    pub input: Box<dyn Read>,
-    pub output: Box<dyn Write>,
-    pub optimize_config:OptConfig,
+    pub input: NamedRead,
+    pub output: NamedWrite,
+    pub optimize_config: OptConfig,
 }
 
 pub struct OptConfig {
@@ -30,11 +30,84 @@ pub enum SymbolicError {
     ParseargInvalidOption,
 }
 
+impl From<std::io::Error> for SymbolicError {
+    fn from(value: std::io::Error) -> Self {
+        todo!()
+    }
+}
+
 impl PartialOrd for IR {
-    fn partial_cmp(&self, rhs:&Self) -> Option<std::cmp::Ordering> {
-        let a_val = match self {IR::Output=>4, IR::Bytecode=>3, IR::AST=>2, IR::TokenStream=>1, IR::Src=>0};
-        let b_val = match rhs {IR::Output=>4, IR::Bytecode=>3, IR::AST=>2, IR::TokenStream=>1, IR::Src=>0};
+    fn partial_cmp(&self, rhs: &Self) -> Option<std::cmp::Ordering> {
+        let a_val = match self {
+            IR::Output => 4,
+            IR::Bytecode => 3,
+            IR::AST => 2,
+            IR::TokenStream => 1,
+            IR::Src => 0,
+        };
+        let b_val = match rhs {
+            IR::Output => 4,
+            IR::Bytecode => 3,
+            IR::AST => 2,
+            IR::TokenStream => 1,
+            IR::Src => 0,
+        };
         a_val.partial_cmp(&b_val)
+    }
+}
+
+pub struct NamedRead {
+    pub name: String,
+    file: Box<dyn Read>,
+}
+
+impl Read for NamedRead {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        self.file.read(buf)
+    }
+}
+
+impl NamedRead {
+    fn new(filename: &str) -> std::io::Result<Self> {
+        Ok(NamedRead {
+            name: filename.to_owned(),
+            file: Box::new(std::fs::File::open(filename)?),
+        })
+    }
+    fn stdin() -> Self {
+        NamedRead {
+            name: "-".to_owned(),
+            file: Box::new(std::io::stdin()),
+        }
+    }
+}
+
+pub struct NamedWrite {
+    pub name: String,
+    file: Box<dyn Write>,
+}
+
+impl Write for NamedWrite {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.file.write(buf)
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.file.flush()
+    }
+}
+
+impl NamedWrite {
+    fn new(filename: &str) -> std::io::Result<Self> {
+        Ok(NamedWrite {
+            name: filename.to_owned(),
+            file: Box::new(std::fs::File::create(filename)?),
+        })
+    }
+    fn stdout() -> Self {
+        NamedWrite {
+            name: "-".to_owned(),
+            file: Box::new(std::io::stdout()),
+        }
     }
 }
 
@@ -50,8 +123,8 @@ impl Args {
         let mut retval = Args {
             from: IR::Src,
             to: IR::Output,
-            input: Box::new(std::io::stdin()),
-            output: Box::new(std::io::stdout()),
+            input: NamedRead::stdin(),
+            output: NamedWrite::stdout(),
             optimize_config: OptConfig {
                 constant_fold: false,
                 remove_dead_code: false,
@@ -62,21 +135,23 @@ impl Args {
         while let Some(arg) = args.next() {
             match &arg as &str {
                 "--from" => {
-                    retval.from = match &args.next().ok_or(SymbolicError::ParseargInvalidOption)? as &str {
-                        "src" | "source" => IR::Src,
-                        "tokens" => IR::TokenStream,
-                        "ast" => IR::AST,
-                        "bytecode" => IR::Bytecode,
-&_ => {return Err(SymbolicError::ParseargInvalidOption)},
-                    }
+                    retval.from =
+                        match &args.next().ok_or(SymbolicError::ParseargInvalidOption)? as &str {
+                            "src" | "source" => IR::Src,
+                            "tokens" => IR::TokenStream,
+                            "ast" => IR::AST,
+                            "bytecode" => IR::Bytecode,
+                            &_ => return Err(SymbolicError::ParseargInvalidOption),
+                        }
                 }
                 "--to" => {
-                    retval.to = match &args.next().ok_or(SymbolicError::ParseargInvalidOption)? as &str {
-                        "tokens" => IR::TokenStream,
-                        "ast" => IR::AST,
-                        "bytecode" => IR::Bytecode,
-&_ => {return Err(SymbolicError::ParseargInvalidOption)},
-                    }
+                    retval.to =
+                        match &args.next().ok_or(SymbolicError::ParseargInvalidOption)? as &str {
+                            "tokens" => IR::TokenStream,
+                            "ast" => IR::AST,
+                            "bytecode" => IR::Bytecode,
+                            &_ => return Err(SymbolicError::ParseargInvalidOption),
+                        }
                 }
                 filename => {
                     if retval_to_associated {
@@ -84,21 +159,18 @@ impl Args {
                         return Err(SymbolicError::ParseargTooManyFiles);
                     }
                     if retval_from_associated {
-                    let associated_file : Box<dyn Write > = match filename {
-                        "-" => Box::new(std::io::stdout()),
-                        _ => {
-                            Box::new(std::fs::File::create(filename).unwrap())
-                        }
-                    };
-                        retval.output = associated_file;
+                        // Only from associated -> ASSOCIATE TO
+                        retval.output = match filename {
+                            "-" => NamedWrite::stdout(),
+                            filename => NamedWrite::new(filename)?,
+                        };
                         retval_to_associated = true;
                     } else {
-                     let associated_file : Box <dyn Read> = match filename {
-                       "-" => Box::new(std::io::stdin()),
-                        _ => {
-                            Box::new(std::fs::File::open(filename).unwrap())
-                        }};
-                        retval.input = associated_file;
+                        // other -> ASSOCIATE FROM
+                        retval.input = match filename {
+                            "-" => NamedRead::stdin(),
+                            filename => NamedRead::new(filename)?,
+                        };
                         retval_from_associated = true;
                     }
                 }
