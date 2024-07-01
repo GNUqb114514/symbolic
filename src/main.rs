@@ -1,4 +1,5 @@
 use std::env;
+use std::io::Read;
 use std::process;
 pub mod symbolic;
 
@@ -10,7 +11,7 @@ fn main() {
     });
 
     println!(
-        "{}",
+        "{} {}...",
         match args.to {
             symbolic::IR::Output => "Running",
             symbolic::IR::AST => "Parsing",
@@ -19,6 +20,13 @@ fn main() {
             symbolic::IR::Src => {
                 panic!("What's the fxxk")
             }
-        }
+        },
+        args.input.name,
     );
+    let mut data = Default::default();
+    args.input.read_to_string(&mut data).unwrap_or_else(|err| {
+        println!("Error reading file: {}", err);
+        process::exit(1);
+    });
+    println!("Read:\n{}", data)
 }

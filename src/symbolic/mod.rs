@@ -4,29 +4,70 @@ use std::io::Write;
 /// Enum to indicate IRs in the progress.
 #[derive(PartialEq)]
 pub enum IR {
+    /// Runned code (can't be `from`).
     Output,
+    /// Compiled bytecode.
     Bytecode,
+    /// Parsed AST.
     AST,
+    /// Tokenized token stream.
     TokenStream,
+    /// Source code (can't be `to`)
     Src,
 }
 
 /// Struct of argumentss.
 pub struct Args {
+    /// The status we has.
     pub from: IR,
+    /// The status we're going to.
     pub to: IR,
+    /// The input file.
     pub input: NamedRead,
+    /// The output file.
     pub output: NamedWrite,
+    /// The optimize config.
     pub optimize_config: OptConfig,
 }
 
 pub struct OptConfig {
+    /// Pre-calculate values of constant expressions.
+    ///
+    /// e.g.
+    /// ```
+    /// a = 114 + 514
+    /// ```
+    /// will be:
+    /// ```
+    /// PUSH_CONST 628 // Folded from '114 + 514'
+    /// STORE_NAME a
+    /// ```
     pub constant_fold: bool,
+    /// Remove unreachable code (or 'dead code').
+    ///
+    /// e.g.
+    /// ```
+    /// <114
+    /// a = 514
+    /// ```
+    /// will be:
+    /// ```
+    /// PUSH_CONST 114
+    /// POP_FRAME
+    /// // PUSH_CONST 512 // This line and above are dead codes
+    ///                   // and are going to be removed.
+    /// // POP_NAME a
+    /// ```
     pub remove_dead_code: bool,
 }
 
+/// Generic error type.
 pub enum SymbolicError {
+    /// Can't parse command line arguments
+    /// because there're too many file arguments.
     ParseargTooManyFiles,
+    /// Can't parse command line arguments
+    /// because there're invalid options.
     ParseargInvalidOption,
 }
 
