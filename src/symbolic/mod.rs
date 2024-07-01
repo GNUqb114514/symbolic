@@ -30,6 +30,7 @@ pub struct Args {
     pub optimize_config: OptConfig,
 }
 
+/// Optimization config.
 pub struct OptConfig {
     /// Pre-calculate values of constant expressions.
     ///
@@ -97,8 +98,11 @@ impl PartialOrd for IR {
     }
 }
 
+/// Wrapper of `Read` with name.
 pub struct NamedRead {
+    /// The name of the file.
     pub name: String,
+    /// The `Read` instance that we're wrapping.
     file: Box<dyn Read>,
 }
 
@@ -109,12 +113,20 @@ impl Read for NamedRead {
 }
 
 impl NamedRead {
+    /// Create from filename.
+    ///
+    /// ```
+    /// assert!(NamedRead::new("exist.txt")?.name, "exist.txt")
+    /// ```
     fn new(filename: &str) -> std::io::Result<Self> {
         Ok(NamedRead {
             name: filename.to_owned(),
             file: Box::new(std::fs::File::open(filename)?),
         })
     }
+    /// Create from stdin.
+    ///
+    /// The filename is `-`.
     fn stdin() -> Self {
         NamedRead {
             name: "-".to_owned(),
@@ -123,8 +135,11 @@ impl NamedRead {
     }
 }
 
+/// Wrapper of `Write` with name.
 pub struct NamedWrite {
+    /// The name of the file.
     pub name: String,
+    /// The `Write` instance that we're wrapping.
     file: Box<dyn Write>,
 }
 
@@ -138,12 +153,20 @@ impl Write for NamedWrite {
 }
 
 impl NamedWrite {
+    /// Create from filename.
+    ///
+    /// ```
+    /// assert!(NamedRead::new("exist.txt")?.name, "exist.txt")
+    /// ```
     fn new(filename: &str) -> std::io::Result<Self> {
         Ok(NamedWrite {
             name: filename.to_owned(),
             file: Box::new(std::fs::File::create(filename)?),
         })
     }
+    /// Create from stdout.
+    ///
+    /// The filename is `-`.
     fn stdout() -> Self {
         NamedWrite {
             name: "-".to_owned(),
