@@ -2,7 +2,10 @@ use crate::parsearg::IR;
 use std::env;
 use std::io::Read;
 use std::process;
-pub mod parsearg;
+
+mod parsearg;
+pub mod error;
+pub mod namedrw;
 
 fn main() {
     println!("Symbolic, the language that has no keywords");

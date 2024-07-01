@@ -1,5 +1,5 @@
-use std::io::Read;
-use std::io::Write;
+use crate::error::SymbolicError;
+use crate::namedrw::{NamedRead, NamedWrite};
 
 /// Enum to indicate IRs in the progress.
 #[derive(PartialEq)]
@@ -15,6 +15,27 @@ pub enum IR {
     /// Source code (can't be `to`)
     Src,
 }
+
+impl PartialOrd for IR {
+    fn partial_cmp(&self, rhs: &Self) -> Option<std::cmp::Ordering> {
+        let a_val = match self {
+            IR::Output => 4,
+            IR::Bytecode => 3,
+            IR::AST => 2,
+            IR::TokenStream => 1,
+            IR::Src => 0,
+        };
+        let b_val = match rhs {
+            IR::Output => 4,
+            IR::Bytecode => 3,
+            IR::AST => 2,
+            IR::TokenStream => 1,
+            IR::Src => 0,
+        };
+        a_val.partial_cmp(&b_val)
+    }
+}
+
 
 /// Struct of argumentss.
 pub struct Args {
@@ -60,119 +81,6 @@ pub struct OptConfig {
     /// // POP_NAME a
     /// ```
     pub remove_dead_code: bool,
-}
-
-/// Generic error type.
-pub enum SymbolicError {
-    /// Can't parse command line arguments
-    /// because there're too many file arguments.
-    ParseargTooManyFiles,
-    /// Can't parse command line arguments
-    /// because there're invalid options.
-    ParseargInvalidOption,
-}
-
-impl From<std::io::Error> for SymbolicError {
-    fn from(value: std::io::Error) -> Self {
-        todo!()
-    }
-}
-
-impl PartialOrd for IR {
-    fn partial_cmp(&self, rhs: &Self) -> Option<std::cmp::Ordering> {
-        let a_val = match self {
-            IR::Output => 4,
-            IR::Bytecode => 3,
-            IR::AST => 2,
-            IR::TokenStream => 1,
-            IR::Src => 0,
-        };
-        let b_val = match rhs {
-            IR::Output => 4,
-            IR::Bytecode => 3,
-            IR::AST => 2,
-            IR::TokenStream => 1,
-            IR::Src => 0,
-        };
-        a_val.partial_cmp(&b_val)
-    }
-}
-
-/// Wrapper of `Read` with name.
-pub struct NamedRead {
-    /// The name of the file.
-    pub name: String,
-    /// The `Read` instance that we're wrapping.
-    file: Box<dyn Read>,
-}
-
-impl Read for NamedRead {
-    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        self.file.read(buf)
-    }
-}
-
-impl NamedRead {
-    /// Create from filename.
-    ///
-    /// ```
-    /// assert!(NamedRead::new("exist.txt")?.name, "exist.txt")
-    /// ```
-    fn new(filename: &str) -> std::io::Result<Self> {
-        Ok(NamedRead {
-            name: filename.to_owned(),
-            file: Box::new(std::fs::File::open(filename)?),
-        })
-    }
-    /// Create from stdin.
-    ///
-    /// The filename is `-`.
-    fn stdin() -> Self {
-        NamedRead {
-            name: "-".to_owned(),
-            file: Box::new(std::io::stdin()),
-        }
-    }
-}
-
-/// Wrapper of `Write` with name.
-pub struct NamedWrite {
-    /// The name of the file.
-    pub name: String,
-    /// The `Write` instance that we're wrapping.
-    file: Box<dyn Write>,
-}
-
-impl Write for NamedWrite {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        self.file.write(buf)
-    }
-    fn flush(&mut self) -> std::io::Result<()> {
-        self.file.flush()
-    }
-}
-
-impl NamedWrite {
-    /// Create from filename.
-    ///
-    /// ```
-    /// assert!(NamedRead::new("exist.txt")?.name, "exist.txt")
-    /// ```
-    fn new(filename: &str) -> std::io::Result<Self> {
-        Ok(NamedWrite {
-            name: filename.to_owned(),
-            file: Box::new(std::fs::File::create(filename)?),
-        })
-    }
-    /// Create from stdout.
-    ///
-    /// The filename is `-`.
-    fn stdout() -> Self {
-        NamedWrite {
-            name: "-".to_owned(),
-            file: Box::new(std::io::stdout()),
-        }
-    }
 }
 
 impl Args {
