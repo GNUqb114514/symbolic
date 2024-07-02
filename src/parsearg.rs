@@ -1,5 +1,6 @@
 use crate::error::SymbolicError;
 use crate::namedrw::{NamedRead, NamedWrite};
+use crate::error::SymbolicErrorKind;
 
 /// Enum to indicate IRs in the progress.
 #[derive(PartialEq)]
@@ -35,7 +36,6 @@ impl PartialOrd for IR {
         a_val.partial_cmp(&b_val)
     }
 }
-
 
 /// Struct of argumentss.
 pub struct Args {
@@ -91,7 +91,7 @@ impl Args {
     /// symbolic <OPTS> [<INPUT> [<OUTPUT>]]
     /// ```
     pub fn from_args(mut args: impl Iterator<Item = String>) -> Result<Args, SymbolicError> {
-        args.next().ok_or(SymbolicError::ParseargInvalidOption)?;
+        args.next().ok_or(SymbolicError::from(SymbolicErrorKind::ParseargInvalidOption))?;
         let mut retval = Args {
             from: IR::Src,
             to: IR::Output,
@@ -108,27 +108,27 @@ impl Args {
             match &arg as &str {
                 "--from" => {
                     retval.from =
-                        match &args.next().ok_or(SymbolicError::ParseargInvalidOption)? as &str {
+                        match &args.next().ok_or(SymbolicErrorKind::ParseargInvalidOption)? as &str {
                             "src" | "source" => IR::Src,
                             "tokens" => IR::TokenStream,
                             "ast" => IR::AST,
                             "bytecode" => IR::Bytecode,
-                            &_ => return Err(SymbolicError::ParseargInvalidOption),
+                            &_ => return Err(SymbolicErrorKind::ParseargInvalidOption.into()),
                         }
                 }
                 "--to" => {
                     retval.to =
-                        match &args.next().ok_or(SymbolicError::ParseargInvalidOption)? as &str {
+                        match &args.next().ok_or(SymbolicErrorKind::ParseargInvalidOption)? as &str {
                             "tokens" => IR::TokenStream,
                             "ast" => IR::AST,
                             "bytecode" => IR::Bytecode,
-                            &_ => return Err(SymbolicError::ParseargInvalidOption),
+                            &_ => return Err(SymbolicErrorKind::ParseargInvalidOption.into()),
                         }
                 }
                 filename => {
                     if retval_to_associated {
                         // All 2 files are associated => FAIL
-                        return Err(SymbolicError::ParseargTooManyFiles);
+                        return Err(SymbolicErrorKind::ParseargTooManyFiles.into());
                     }
                     if retval_from_associated {
                         // Only from associated -> ASSOCIATE TO
@@ -149,7 +149,7 @@ impl Args {
             }
         }
         if retval.from > retval.to {
-            return Err(SymbolicError::ParseargInvalidOption);
+            return Err(SymbolicErrorKind::ParseargInvalidOption.into());
         }
         Ok(retval)
     }
